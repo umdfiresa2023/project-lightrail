@@ -1,0 +1,31 @@
+install.packages("writexl")
+
+library("writexl")
+library(ggmap)
+library(tmaptools)
+library(RCurl)
+library(jsonlite)
+library(tidyverse)
+library(leaflet)
+
+register_google(key = "AIzaSyAg7L_5o3m9vTx-VVDFxoJOLYt9UYAd3BY")
+
+# create a list of cities
+citynames <- c("Little Rock Arizona",
+               "Denton-Lewisville Texas",
+               "Portland Maine",
+               "Nashville-Davidson Tennessee",
+               "Albuquerque New Mexico",
+               "Virginia Beach Virginia", 
+               "Charlotte North Carolina",
+               "Austin Texas",
+               "Phoenix Arizona",
+               "Minneapolis-St. Paul Minnesota",
+               "Houston Texas") 
+cities_df <- data.frame(Cities = citynames, stringsAsFactors = FALSE)
+
+# run the geocode function from ggmap package
+cities_ggmap <- geocode(location = citynames, output = "latlon", source = "google")
+cities_ggmap <- cbind(cities_df, cities_ggmap)
+
+write_xlsx(cities_ggmap, "G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/cities_latlon.xlsx")
