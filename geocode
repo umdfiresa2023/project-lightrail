@@ -11,11 +11,7 @@ library(leaflet)
 register_google(key = "AIzaSyAg7L_5o3m9vTx-VVDFxoJOLYt9UYAd3BY")
 
 # create a list of cities
-citynames <- c("Little Rock Arizona",
-               "Denton-Lewisville Texas",
-               "Portland Maine",
-               "Nashville-Davidson Tennessee",
-               "Albuquerque New Mexico",
+citynames <- c("Albuquerque New Mexico",
                "Virginia Beach Virginia", 
                "Charlotte North Carolina",
                "Austin Texas",
