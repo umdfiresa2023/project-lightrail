@@ -1,10 +1,3 @@
-#install.packages("terra")
-#install.packages("rgeos")
-#install.packages("tidyverse")
-#install.packages("tmap")
-#install.packages("leaflet")
-install.packages("remotes")
-remotes::install_github("rstudio/leaflet")
 library("terra")
 library("rgeos")
 library("tidyverse")
@@ -15,46 +8,57 @@ library("leafem")
 
 cities_latlon<-read.csv("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/cities_latlon.csv")
 
-#jan2000_01<-rast("input/pm25_raster/20000101.tif")
+m<-1
 d<-1
 c<-1
-
-path<-"G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/aqdh-pm2-5-concentrations-contiguous-us-1-km-2000-2016-200001-geotiff/"
-files<-dir(path)
-
 all_output<-c()
+monthly_avg<-c()
 
-for (d in 1:length(files)) {
-  r<-rast(paste0(path,files[d]))
-  raster_project <- project(r,  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
+# path to the PM25 folder
+path<-"G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/aqdh-pm2-5-concentrations-contiguous-us-1-km-2000-2016-200001-geotiff/"
+months<-dir(path)
+
+# for each month
+#for (m in 1:length(months)) {
+  days<-dir(months[m])
   
-  for (c in 1:length(cities_latlon)) {
-    city_coord<-cities_latlon[c,2:3]
+  # for each day in this month
+  #for (d in 1:length(days)) {
+  
+    r<-rast(paste0(path, files[d]))
+    raster_project<-project(r,  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
     
-    pts<-vect(city_coord, 
-              crs="+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+    #for (c in 1:length(cities_latlon)) {
+      city_coord<-cities_latlon[c,2:3]
+      
+      pts<-vect(city_coord, 
+                crs="+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+      
+      pts_buffer<-terra::buffer(pts, width = 10000)
+      
+      int<-crop(raster_project, pts_buffer,
+                snap="in",
+                mask=TRUE)
+      
+      #turn raster circle into dataframe
+      v <- as.data.frame(values(int))
+      names(v)<-"pm25"
+      
+      # find pm2.5 average within the circle dataframe
+      v2<-v %>%
+        filter(!is.na(pm25)) %>%
+        summarize(mean_pm25 = mean(pm25))
+      
+      output <- as.data.frame(c("city"=cities_latlon[c,1], "date"=files[d], v2))
+      all_output<-rbind(all_output, output)
+      
+#    }
     
-    pts_buffer<-terra::buffer(pts, width = 10000)
-    
-    int<-crop(raster_project, pts_buffer,
-              snap="in",
-              mask=TRUE)
-    
-    #turn raster circle into dataframe
-    v <- as.data.frame(values(int))
-    names(v)<-"pm25"
-    
-    #jan_df<-as.data.frame(int)
-    #find pm2.5 average within the circle dataframe
-    v2<-v %>%
-      filter(!is.na(pm25)) %>%
-      summarize(mean_pm25 = mean(pm25))
-    
-    output <- as.data.frame(c("city"=cities_latlon[c,1], "date"=files[d], v2))
-    all_output<-rbind(all_output, output)
-                            
-  }
-}
+     # find the average of all_output and append that to a df for the monthly averages?
+     #all_output %<% all_output
+      #summarize(monthly_avg = mean(pm25))
+#  }
+#}
 
 # jan2000_01_all_cities <- rbind(jan2000_01_all_cities, v2)
 write.csv("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/jan_all_cities", row.names = F)
