@@ -20,3 +20,5 @@ for(m in 1:length(months)) {
 
 # remove duplicates
 monthly_avg_pm25 <- monthly_avg_pm25[!duplicated(monthly_avg_pm25), ]
+
+write.csv(monthly_avg_pm25, "G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/monthly_avg_pm25.csv", row.names = F)
