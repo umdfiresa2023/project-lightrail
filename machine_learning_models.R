@@ -3,17 +3,16 @@ library("tidyverse")
 updated <- read.csv("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/merged_pm25.csv")
 
 # adjust data for machine learning models
-updated<-updated %>%
-  mutate(city=as.factor(city))
-
-updated<-updated[,-c(5,6)]
+updated2<-updated %>%
+  mutate(city=as.factor(city))%>%
+  dplyr::select(-temp, -date, -meanpm25)
 
 # Machine Learning Models
 
 # rpart model
 
 # Upload and clean data
-df2<-updated %>%
+df2<-updated2 %>%
   filter(lr_month<=36 & lr_month>= -36)
 
 summary(updated)
@@ -44,7 +43,7 @@ summary(model1)
 
 predict_test<-predict(model1, test, type="response")
 
-rmse_test_lm1<-sqrt(mean(test$new_monthly_average-predict_test)^2)
+rmse_test_lm1<-sqrt(mean(test$new_monthly_avg-predict_test)^2)
 
 rmse_test_lm1
 
@@ -52,7 +51,7 @@ rmse_test_lm1
 library("leaps")
 
 Best_Subset <-
-  regsubsets(meanpm25~.,
+  regsubsets(new_monthly_avg~.,
              data = train,
              nbest = 1,      
              nvmax = 5,    # limit on number of variables
@@ -62,19 +61,19 @@ Best_Subset <-
 summary_best_subset <- summary(Best_Subset)
 summary_best_subset$which[which.max(summary_best_subset$adjr2),]
 
-model2<-lm(meanpm25 ~ temp + mt2 + vp2 + city, data=train)
+model2<-lm(new_monthly_avg ~ Mean_Temperature + mt2 + vp2 + city, data=train)
 
 summary(model2)
 
 predict_test<-predict(model2, test, type="response")
 
-rmse_test_lm2<-sqrt(mean(test$meanpm25-predict_test)^2)
+rmse_test_lm2<-sqrt(mean(test$new_monthly_avg-predict_test)^2)
 
 rmse_test_lm2
 
 # Run rpart package
 library("rpart")
-model3<-rpart(meanpm25 ~., train)
+model3<-rpart(new_monthly_avg ~., train)
 
 summary(model3)
 
@@ -89,7 +88,7 @@ v1
 
 predict_test<-predict(model3, test)
 
-rmse_test_rpart<-sqrt(mean(test$meanpm25-predict_test)^2)
+rmse_test_rpart<-sqrt(mean(test$new_monthly_avg-predict_test)^2)
 
 rmse_test_rpart
 
