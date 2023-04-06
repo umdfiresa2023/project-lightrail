@@ -109,3 +109,18 @@ rmse_test_rf<-sqrt(mean(test$new_monthly_avg-predict_test$predictions)^2)
 
 rmse_test_rf
 
+# Comapring models
+
+openlr <- updated %>%
+  filter(lr_op>0)
+
+predict_test<-predict(model4, df2)
+
+df3 <- cbind(df2, predict_test$predictions)
+
+ggplot(data = df3) + geom_point(aes(x = lr_month, y = new_monthly_avg)) +
+  geom_point(aes(x = lr_month, y = predict_test$predictions, color = "predicted")) + facet_wrap(~ city)+ 
+  geom_smooth(aes(x = lr_month, y = new_monthly_avg), color = "black", se = FALSE) + 
+  geom_smooth(aes(x = lr_month, y = predict_test$predictions), color = "red", se = FALSE) +
+  xlab("month") + ylab("mean of PM2.5") + geom_vline(xintercept=0, linetype="dashed")+theme_bw()
+
