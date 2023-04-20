@@ -18,19 +18,14 @@ updated2<-updated %>%
 
 # Machine Learning Models:
 
-# rpart model
 
 # Upload and clean data
 df2<-updated2 %>%
   filter(lr_month<=36 & lr_month>= -36)
 
-summary(updated)
-
 df3<-df2 %>%
   filter(lr_op < 1) %>%
   dplyr::select(-lr_op, -lr_month)
-
-glimpse(df2)
 
 sapply(lapply(df2, unique), length)
 
@@ -40,61 +35,10 @@ set.seed(112)
 shuffled<-df3 %>% sample_frac(size=1, replace=FALSE)
 
 train<-shuffled %>%
-  slice(1:100)
+  dplyr::slice(1:100)
 
 test<-shuffled %>%
-  slice(101:145)
-
-# Run linear model and calculate test RMSE
-model1<-lm(new_monthly_avg ~ ., data=train)
-
-summary(model1)
-
-predict_test<-predict(model1, test, type="response")
-
-rmse_test_lm1<-sqrt(mean(test$new_monthly_avg-predict_test)^2)
-
-rmse_test_lm1
-
-# Run linear model and calculate test RMSE 
-Best_Subset <-
-  regsubsets(new_monthly_avg~.,
-             data = train,
-             nbest = 1,      
-             nvmax = 5,    # limit on number of variables
-             force.in = NULL, force.out = NULL,
-             method = "seqrep")
-
-summary_best_subset <- summary(Best_Subset)
-summary_best_subset$which[which.max(summary_best_subset$adjr2),]
-
-model2<-lm(new_monthly_avg ~ Mean_Temperature + mt2 + vp2 + city, data=train)
-
-summary(model2)
-
-predict_test<-predict(model2, test, type="response")
-
-rmse_test_lm2<-sqrt(mean(test$new_monthly_avg-predict_test)^2)
-
-rmse_test_lm2
-
-# Run rpart package
-model3<-rpart(new_monthly_avg ~., train)
-
-summary(model3)
-
-rpart.plot(model3,fallen.leaves = T)
-
-v1<-vip(model3)
-v1
-
-predict_test<-predict(model3, test)
-
-rmse_test_rpart<-sqrt(mean(test$new_monthly_avg-predict_test)^2)
-
-rmse_test_rpart
-
-# ------------------------------------------------------------------------------
+  dplyr::slice(101:145)
 
 # random forest model
 
@@ -102,11 +46,26 @@ model4 <- ranger(new_monthly_avg ~ ., data=train, importance='impurity')
 v1 <- vip(model4)
 v1
 
+#rf model evaluation
 predict_test<-predict(model4, test)
 
 rmse_test_rf<-sqrt(mean(test$new_monthly_avg-predict_test$predictions)^2)
 
 rmse_test_rf
+
+#create data for the graph
+openlr <- updated %>%
+  filter(lr_op>0) %>%
+  mutate(city=as.factor(city))%>%
+  dplyr::select(-temp, -date, -meanpm25) %>%
+  dplyr::select(-lr_op, -lr_month)
+
+# rf model with all data
+predict_test<-predict(model4, openlr)
+
+rf_pred<-predict_test$predictions
+
+rf_df<-cbind(openlr, rf_pred)
 
 # ------------------------------------------------------------------------------
 
@@ -117,6 +76,9 @@ rmse_test_rf
 set.seed(112)
 
 shuffled<-df3 %>% sample_frac(size=1, replace=FALSE)
+all_data <- df2 %>%
+  dplyr::select(-lr_op)
+all_data2 <- data.matrix(all_data)
 
 train<-shuffled %>%
   dplyr::slice(1:100)
@@ -148,19 +110,52 @@ rmse_test_xgb<-sqrt(mean(test_y-predict_xgb)^2)
 
 rmse_test_xgb
 
-# ------------------------------------------------------------------------------
+#create data for the graph
+openlr <- updated %>%
+  filter(lr_op>0) %>%
+  mutate(city=as.factor(city))%>%
+  dplyr::select(-temp, -date, -meanpm25) %>%
+  dplyr::select(-lr_op, -lr_month)
 
-# Comapring models
+openlr_matrix <- data.matrix(openlr)
+
+all_x = data.matrix(openlr_matrix[, -4])
+all_y = openlr_matrix[, 4]
+
+xgb_all = xgb.DMatrix(data = all_x, label = all_y)
+
+# rf model with all data
+predict_all_xgb<-predict(xgb_model, xgb_all)
+
+xgb_df<-cbind(rf_df, predict_all_xgb)
+
+# ------------------------------------------------------------------------------
 
 openlr <- updated %>%
   filter(lr_op>0)
 
-predict_test<-predict(model4, df2)
+lr_removed <- df2 %>%
+  dplyr::select(-lr_op)
 
-df3 <- cbind(df2, predict_test$predictions)
+# rf model with all data
+model5 <- ranger(new_monthly_avg ~ ., data=lr_removed, importance='impurity')
+predict_test<-predict(model4, lr_removed)
 
-ggplot(data = df3) + geom_point(aes(x = lr_month, y = new_monthly_avg)) +
-  geom_point(aes(x = lr_month, y = predict_test$predictions, color = "predicted")) + facet_wrap(~ city)+ 
-  geom_smooth(aes(x = lr_month, y = new_monthly_avg), color = "black", se = FALSE) + 
-  geom_smooth(aes(x = lr_month, y = predict_test$predictions), color = "red", se = FALSE) +
-  xlab("month") + ylab("mean of PM2.5") + geom_vline(xintercept=0, linetype="dashed")+theme_bw()
+# xgb model with all data
+matrix <- data.matrix(lr_removed)
+
+my<-df2 %>%
+  dplyr::select(lr_month, month, year, city)
+
+pred_df<-merge(xgb_df, my, by=c("month","year", "city"), all.x=TRUE)
+
+p<-ggplot() + 
+  geom_line(data = df2, aes(x = lr_month, y = new_monthly_avg, color = "Actual Data"), size=1) + facet_wrap(~ city) +
+  geom_line(data=pred_df, aes(x = lr_month, y = rf_pred, color = "RF Counterfactual"), size=1) + facet_wrap(~ city) +
+  geom_line(data=pred_df, aes(x = lr_month, y = predict_all_xgb, color = "XGB Counterfactual"), size=1) + facet_wrap(~ city) + 
+  #geom_smooth(data = pred_df, aes(x = lr_month, y = new_monthly_avg), color = "black", se = FALSE) + 
+  #geom_smooth(data = pred_df, aes(x = lr_month, y = rf_pred), color = "red", se = FALSE) +
+  #geom_smooth(data = pred_df, aes(x = lr_month, y = predict_all_xgb), color = "blue", se = FALSE) +
+  xlab("Months since light rail opening") + ylab("Mean PM2.5 (μg/m3)") + geom_vline(xintercept=0, linetype="dashed")+theme_bw()
+
+ggsave(p, filename="G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/OUTPUT/rf_xgb_graph.png", dpi=500, width=8, height=5, unit="in")
