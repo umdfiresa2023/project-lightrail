@@ -1,0 +1,63 @@
+library("terra")
+#install.packages("spdplyr")
+library("spdplyr")
+
+cities_latlon<-read.csv("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/cities_latlon.csv")
+
+jan2000_01<-rast("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/PM25/2000_01/20000101.tif")
+
+# rast lr file
+
+i<-7
+
+city_coord<-cities_latlon[1,2:3]
+
+pts<-vect(city_coord, 
+          crs="+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+
+pts_buffer<-terra::buffer(pts, width = 10000)
+
+pts_extent<-terra::buffer(pts, width = 20000)
+
+plot(pts_buffer)
+
+#work with raster
+raster_project <- project(jan2000_01,  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
+
+int<-crop(raster_project, pts_buffer,
+          snap="in",
+          mask=TRUE)
+
+#visualize data
+plot(int, ext=ext(pts_extent))
+lines(pts_buffer)
+
+# ------------
+
+us_shp<-vect("G:/Shared drives/2022 FIRE-SA/ARCHIVED - SUMMER INTERNSHIP/Light Rail/DATA/nhgis0001_shapefile_tl2020_us_place_2020/US_place_2020.shp")
+
+charlotte_shp<-which(us_shp$NAMELSAD == "Charlotte city" & us_shp$STATEFP == 37)
+
+c<-us_shp[charlotte_shp, ]
+
+# plot(c, xlim(,), ylim(,))
+
+# project, crop, then draw the circles 
+c_project <- project(c, "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
+
+coord_df<-tibble(lat=35.171591,lon=-80.761563)
+
+#pts2<-project(coord, "+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+
+coord_cntrl<-vect(coord_df, 
+          crs="+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+
+cntrl_buffer<-terra::buffer(coord_cntrl, width = 10000)
+
+c_extent<-terra::buffer(coord_cntrl, width = 500000)
+
+plot(c)
+
+plot(c, ext=ext(c_extent))
+lines(cntrl_buffer)
+lines(pts_buffer)
