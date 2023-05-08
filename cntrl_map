@@ -10,7 +10,7 @@ jan2000_01<-rast("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/
 
 i<-7
 
-city_coord<-cities_latlon[1,2:3]
+city_coord<-cities_latlon[i,2:3]
 
 pts<-vect(city_coord, 
           crs="+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
@@ -22,7 +22,7 @@ pts_extent<-terra::buffer(pts, width = 20000)
 plot(pts_buffer)
 
 #work with raster
-raster_project <- project(jan2000_01,  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
+raster_project <- terra::project(jan2000_01,  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
 
 int<-crop(raster_project, pts_buffer,
           snap="in",
@@ -43,9 +43,13 @@ c<-us_shp[charlotte_shp, ]
 # plot(c, xlim(,), ylim(,))
 
 # project, crop, then draw the circles 
-c_project <- project(c, "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
+c_project <- terra::project(c, "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
 
-coord_df<-tibble(lat=35.171591,lon=-80.761563)
+# (35.105332, -80.681912)
+# (35.054760, -80.797268)
+# (35.080612, -80.703884)
+
+coord_df<-tibble(lat=35.063753,lon=-80.744396)
 
 #pts2<-project(coord, "+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
 
@@ -54,10 +58,28 @@ coord_cntrl<-vect(coord_df,
 
 cntrl_buffer<-terra::buffer(coord_cntrl, width = 10000)
 
-c_extent<-terra::buffer(coord_cntrl, width = 500000)
+c_extent<-terra::buffer(coord_cntrl, width = 50000)
+
+int<-crop(raster_project, c_extent, 
+          snap="in",
+          mask=TRUE)
 
 plot(c)
 
-plot(c, ext=ext(c_extent))
+plot(int, ext=ext(c_extent))
+lines(c_project)
 lines(cntrl_buffer)
 lines(pts_buffer)
+
+# finding the mean pm2.5 inside the control circle
+cntrl_area<-terra::crop(int, cntrl_buffer, 
+          snap="in", 
+          mask=TRUE)
+
+cntrl_df<-as.data.frame(values(cntrl_area))
+
+names(cntrl_df)<-"pm25"
+
+contrl_df2<-cntrl_df %>%
+  filter(!is.na(pm25)) %>%
+  summarize(mean_pm25 = mean(pm25))
