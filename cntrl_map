@@ -2,6 +2,9 @@ library("terra")
 #install.packages("spdplyr")
 library("spdplyr")
 library("tidyverse")
+install.packages("terra")
+install.packages("spdplyr")
+install.packages("tidyverse")
 
 cities_latlon<-read.csv("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/cities_latlon.csv")
 
@@ -55,7 +58,7 @@ coord_df<-tibble(lat=35.063753,lon=-80.744396)
 #pts2<-project(coord, "+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
 
 coord_cntrl<-vect(coord_df, 
-          crs="+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+                  crs="+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
 
 cntrl_buffer<-terra::buffer(coord_cntrl, width = 10000)
 
@@ -74,8 +77,8 @@ lines(pts_buffer)
 
 # finding the mean pm2.5 inside the control circle
 cntrl_area<-terra::crop(int, cntrl_buffer, 
-          snap="in", 
-          mask=TRUE)
+                        snap="in", 
+                        mask=TRUE)
 
 cntrl_df<-as.data.frame(values(cntrl_area))
 
@@ -110,30 +113,30 @@ for (m in 1:length(months)) {
     
     city_output<-c()
     
-      pts<-vect(city_coord, 
-                crs="+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
-      
-      pts_buffer<-terra::buffer(pts, width = 10000)
-      
-      int<-crop(raster_project, pts_buffer,
-                snap="in",
-                mask=TRUE)
-      
-      #turn raster circle into dataframe
-      v <- as.data.frame(values(int))
-      names(v)<-"pm25"
-      
-      # find pm2.5 average within the circle dataframe
-      v2<-v %>%
-        filter(!is.na(pm25)) %>%
-        summarize(cntrl_mean_pm25 = mean(pm25))
-      
-      output <- as.data.frame(c("city"=cities_latlon[7,1], "month" = substring(days[d],5,6), "year" = substring(days[d],1,4), "date"=days[d], v2))
-      city_output<-rbind(city_output, output)
+    pts<-vect(city_coord, 
+              crs="+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+    
+    pts_buffer<-terra::buffer(pts, width = 10000)
+    
+    int<-crop(raster_project, pts_buffer,
+              snap="in",
+              mask=TRUE)
+    
+    #turn raster circle into dataframe
+    v <- as.data.frame(values(int))
+    names(v)<-"pm25"
+    
+    # find pm2.5 average within the circle dataframe
+    v2<-v %>%
+      filter(!is.na(pm25)) %>%
+      summarize(cntrl_mean_pm25 = mean(pm25))
+    
+    output <- as.data.frame(c("city"=cities_latlon[7,1], "month" = substring(days[d],5,6), "year" = substring(days[d],1,4), "date"=days[d], v2))
+    city_output<-rbind(city_output, output)
     
     days_output<-rbind(days_output,city_output)
-    write.csv(days_output, "G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/charlotte_control_mean.csv", row.names = F)
   }
+  write.csv(days_output, paste0("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/charlotte_control_mean/",months[m],".csv"), row.names = F)
 }
 
 # graph
@@ -161,4 +164,3 @@ p<-ggplot() +
   geom_vline(xintercept=0, linetype="dashed")+theme_bw()
 
 ggsave(p, filename="G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/OUTPUT/charlotte_cntrl_graph.png", dpi=500, width=8, height=5, unit="in")
-
