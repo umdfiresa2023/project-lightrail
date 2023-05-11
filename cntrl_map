@@ -1,6 +1,7 @@
 library("terra")
 #install.packages("spdplyr")
 library("spdplyr")
+library("tidyverse")
 
 cities_latlon<-read.csv("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/cities_latlon.csv")
 
@@ -83,3 +84,81 @@ names(cntrl_df)<-"pm25"
 contrl_df2<-cntrl_df %>%
   filter(!is.na(pm25)) %>%
   summarize(mean_pm25 = mean(pm25))
+
+# ------------------------------------------
+
+# path to the PM25 folder
+path<-"G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/PM25/"
+months<-dir(path)
+
+#m <- 1
+#d <- 1
+c <- 7
+city_coord<-tibble(lat=35.063753,lon=-80.744396)
+
+# for each month
+for (m in 1:length(months)) {
+  days<-dir(paste0(path,months[m]))
+  
+  # for each day in this month
+  days_output<-c()
+  for (d in 1:length(days)) {
+    
+    print(days[d])
+    r<-rast(paste0(path, months[m], "/", days[d]))
+    raster_project<-project(r,  "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs ")
+    
+    city_output<-c()
+    
+      pts<-vect(city_coord, 
+                crs="+proj=longlat +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+      
+      pts_buffer<-terra::buffer(pts, width = 10000)
+      
+      int<-crop(raster_project, pts_buffer,
+                snap="in",
+                mask=TRUE)
+      
+      #turn raster circle into dataframe
+      v <- as.data.frame(values(int))
+      names(v)<-"pm25"
+      
+      # find pm2.5 average within the circle dataframe
+      v2<-v %>%
+        filter(!is.na(pm25)) %>%
+        summarize(cntrl_mean_pm25 = mean(pm25))
+      
+      output <- as.data.frame(c("city"=cities_latlon[7,1], "month" = substring(days[d],5,6), "year" = substring(days[d],1,4), "date"=days[d], v2))
+      city_output<-rbind(city_output, output)
+    
+    days_output<-rbind(days_output,city_output)
+    write.csv(days_output, "G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/charlotte_control_mean.csv", row.names = F)
+  }
+}
+
+# graph
+
+merged_df <- read.csv("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/merged_pm25.csv")
+charlotte_center_mean <- merged_df %>%
+  filter(city == "Charlotte")
+
+# merge new data with old dataset
+control_df <- read.csv("G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/charlotte_control_mean.csv")
+control_df[control_df == "Charlotte North Carolina"] <- "Charlotte"
+updated <- merge(x=control_df, y=merged_df, by=c("city", "month", "year"))
+write.csv(updated, "G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/DATA/merged_pm25_with_charlotte_cntrl.csv", row.names = F)
+
+
+colors <- c("Control" = "black", "City Center" = "blue")
+
+p<-ggplot() + 
+  geom_line(data = charlotte_center_mean, aes(x = lr_month, y = new_monthly_avg, color = "City Center"), size=1) + facet_wrap(~ city) +
+  geom_line(data = control_df, aes(x = lr_month, y = cntrl_mean_pm25, color = "Control"), size=1) + facet_wrap(~ city) +
+  labs(x = "Months since light rail opening",
+       y = "Mean PM2.5 (??g/m3)",
+       color = "Legend") +
+  scale_color_manual(values = colors) +
+  geom_vline(xintercept=0, linetype="dashed")+theme_bw()
+
+ggsave(p, filename="G:/Shared drives/2023 FIRE-SA PRM/Spring Research/Light Rails/OUTPUT/charlotte_cntrl_graph.png", dpi=500, width=8, height=5, unit="in")
+
