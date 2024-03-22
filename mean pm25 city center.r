@@ -10,7 +10,7 @@ library(sf)
 library("ggmap")
 library(googleAuthR)
 library(mapsapi)
-api <- "AIzaSyAg7L_5o3m9vTx-VVDFxoJOLYt9UYAd3BY" # Text file with the API key
+api <- "" # Text file with the API key
 register_google(key = api, write = TRUE)
 has_google_key()
 google_key()
